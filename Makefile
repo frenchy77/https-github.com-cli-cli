@@ -11,6 +11,9 @@ export CGO_LDFLAGS
 bin/gh: script/build
 	@script/build bin/gh
 
+bin/md: cmd/md/md.go
+	go build -o "$@" ./cmd/md
+
 script/build: script/build.go
 	go build -o script/build script/build.go
 
