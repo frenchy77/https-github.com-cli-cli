@@ -23,6 +23,8 @@ jobs:
             -f tag_name="${GITHUB_REF#refs/tags/}" \
             -f target_commitish=trunk \
             -q .body > CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v2
         with:
