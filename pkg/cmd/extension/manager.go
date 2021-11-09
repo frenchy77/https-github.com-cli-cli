@@ -525,7 +525,7 @@ func (m *Manager) installDir() string {
 	return filepath.Join(m.dataDir(), "extensions")
 }
 
-func (m *Manager) Create(name string) error {
+func (m *Manager) Create(name string, tmplType extensions.ExtTemplateType) error {
 	exe, err := m.lookPath("git")
 	if err != nil {
 		return err
@@ -540,6 +540,12 @@ func (m *Manager) Create(name string) error {
 	err = initCmd.Run()
 	if err != nil {
 		return err
+	}
+
+	if tmplType == extensions.GoBinTemplateType {
+		return m.goBinScaffolding(exe, name)
+	} else if tmplType == extensions.OtherBinTemplateType {
+		return m.otherBinScaffolding(exe, name)
 	}
 
 	fileTmpl := heredoc.Docf(`
@@ -591,8 +597,155 @@ func (m *Manager) Create(name string) error {
 	}
 	dir := filepath.Join(wd, name)
 	addCmd := m.newCommand(exe, "-C", dir, "--git-dir="+filepath.Join(dir, ".git"), "add", name, "--chmod=+x")
+	return addCmd.Run()
+}
+
+func (m *Manager) otherBinScaffolding(gitExe, name string) error {
+	err := os.MkdirAll(filepath.Join(name, ".github", "workflows"), 0755)
+	if err != nil {
+		return err
+	}
+	workflow := heredoc.Doc(`
+	name: release
+	on:
+	  push:
+	    tags:
+	      - "v*"
+	permissions:
+	  contents: write
+	
+	jobs:
+	  release:
+	    runs-on: ubuntu-latest
+	    steps:
+	      - uses: actions/checkout@v2
+	      - uses: cli/gh-extension-precompile@v1
+		  	with:
+			  build_script_override: "script/build.sh"
+	`)
+	workflowPath := filepath.Join(".github", "workflows", "release.yml")
+	err = ioutil.WriteFile(filepath.Join(name, workflowPath), []byte(workflow), 0755)
+	if err != nil {
+		return err
+	}
+	err = os.Mkdir(filepath.Join(name, "script"), 0755)
+	if err != nil {
+		return err
+	}
+	buildScript := heredoc.Doc(`
+	#!/usr/bin/env bash
+	echo "TODO implement this script."
+	echo "It should build binaries in /dist/<platform>-<arch>[.exe] as needed."
+	`)
+	buildScriptPath := filepath.Join("script", "build.sh")
+	err = ioutil.WriteFile(filepath.Join(name, buildScriptPath), []byte(buildScript), 0755)
+	if err != nil {
+		return err
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	dir := filepath.Join(wd, name)
+	addCmd := m.newCommand(gitExe, "-C", dir, "--git-dir="+filepath.Join(dir, ".git"), "add", buildScriptPath, "--chmod=+x")
 	err = addCmd.Run()
-	return err
+	if err != nil {
+		return err
+	}
+
+	addCmd = m.newCommand(gitExe, "-C", dir, "--git-dir="+filepath.Join(dir, ".git"), "add", workflowPath)
+	return addCmd.Run()
+}
+
+func (m *Manager) goBinScaffolding(gitExe, name string) error {
+	err := os.MkdirAll(filepath.Join(name, ".github", "workflows"), 0755)
+	if err != nil {
+		return err
+	}
+	workflow := heredoc.Doc(`
+	name: release
+	on:
+	  push:
+	    tags:
+	      - "v*"
+	permissions:
+	  contents: write
+	
+	jobs:
+	  release:
+	    runs-on: ubuntu-latest
+	    steps:
+	      - uses: actions/checkout@v2
+	      - uses: cli/gh-extension-precompile@v1
+	`)
+	workflowPath := filepath.Join(".github", "workflows", "release.yml")
+	err = ioutil.WriteFile(filepath.Join(name, workflowPath), []byte(workflow), 0755)
+	if err != nil {
+		return err
+	}
+
+	// TODO put in some helpers
+	mainGo := heredoc.Docf(`
+	package main
+	import (
+		"bytes"
+		"fmt"
+		"os/exec"
+		"strings"
+
+		"github.com/cli/safeexec"
+	)
+
+	func main() {
+		fmt.Println("hi world, this is the %s extension!")
+	}
+	
+	// gh shells out to gh, returning STDOUT/STDERR and any error
+	func gh(args ...string) (sout, eout bytes.Buffer, err error) {
+		ghBin, err := safeexec.LookPath("gh")
+		if err != nil {
+			err = fmt.Errorf("could not find gh. Is it installed? error: %%w", err)
+			return
+		}
+
+		cmd := exec.Command(ghBin, args...)
+		cmd.Stderr = &eout
+		cmd.Stdout = &sout
+
+		err = cmd.Run()
+		if err != nil {
+			err = fmt.Errorf("failed to run gh. error: %%w, stderr: %%s", err, eout.String())
+			return
+		}
+
+		return
+	}
+
+	func resolveRepository() (string, error) {
+		sout, _, err := gh("repo", "view")
+		if err != nil {
+			return "", err
+		}
+		viewOut := strings.Split(sout.String(), "\n")[0]
+		repo := strings.TrimSpace(strings.Split(viewOut, ":")[1])
+
+		return repo, nil
+	}`, name)
+	mainPath := "main.go"
+	err = ioutil.WriteFile(filepath.Join(name, mainPath), []byte(mainGo), 0755)
+	if err != nil {
+		return err
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	dir := filepath.Join(wd, name)
+	addCmd := m.newCommand(gitExe, "-C", dir, "--git-dir="+filepath.Join(dir, ".git"), "add", workflowPath, mainPath)
+	return addCmd.Run()
 }
 
 func runCmds(cmds []*exec.Cmd) error {

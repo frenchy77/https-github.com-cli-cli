@@ -14,6 +14,7 @@ import (
 	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/cli/v2/internal/config"
 	"github.com/cli/cli/v2/internal/ghrepo"
+	"github.com/cli/cli/v2/pkg/extensions"
 	"github.com/cli/cli/v2/pkg/httpmock"
 	"github.com/cli/cli/v2/pkg/iostreams"
 	"github.com/stretchr/testify/assert"
@@ -504,7 +505,7 @@ func TestManager_Create(t *testing.T) {
 	assert.NoError(t, os.Chdir(tempDir))
 	t.Cleanup(func() { _ = os.Chdir(oldWd) })
 	m := newTestManager(tempDir, nil, nil)
-	err := m.Create("gh-test")
+	err := m.Create("gh-test", extensions.GitTemplateType)
 	assert.NoError(t, err)
 	files, err := ioutil.ReadDir(filepath.Join(tempDir, "gh-test"))
 	assert.NoError(t, err)
@@ -516,6 +517,56 @@ func TestManager_Create(t *testing.T) {
 	} else {
 		assert.Equal(t, os.FileMode(0755), extFile.Mode())
 	}
+}
+
+func TestManager_Create_go_binary(t *testing.T) {
+	tempDir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	assert.NoError(t, os.Chdir(tempDir))
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
+	m := newTestManager(tempDir, nil, nil)
+
+	err := m.Create("gh-test", extensions.GoBinTemplateType)
+	assert.NoError(t, err)
+
+	files, err := ioutil.ReadDir(filepath.Join(tempDir, "gh-test"))
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(files))
+	mainFile := files[1]
+	assert.Equal(t, "main.go", mainFile.Name())
+
+	files, err = ioutil.ReadDir(filepath.Join(tempDir, "gh-test", ".github", "workflows"))
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(files))
+	workflowFile := files[0]
+	assert.Equal(t, "release.yml", workflowFile.Name())
+}
+
+func TestManager_Create_other_binary(t *testing.T) {
+	tempDir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	assert.NoError(t, os.Chdir(tempDir))
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
+	m := newTestManager(tempDir, nil, nil)
+
+	err := m.Create("gh-test", extensions.OtherBinTemplateType)
+	assert.NoError(t, err)
+
+	files, err := ioutil.ReadDir(filepath.Join(tempDir, "gh-test"))
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(files))
+
+	files, err = ioutil.ReadDir(filepath.Join(tempDir, "gh-test", ".github", "workflows"))
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(files))
+	workflowFile := files[0]
+	assert.Equal(t, "release.yml", workflowFile.Name())
+
+	files, err = ioutil.ReadDir(filepath.Join(tempDir, "gh-test", "script"))
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(files))
+	buildFile := files[0]
+	assert.Equal(t, "build.sh", buildFile.Name())
 }
 
 func stubExtension(path string) error {
