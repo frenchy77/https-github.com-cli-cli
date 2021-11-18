@@ -2,6 +2,7 @@ package extension
 
 import (
 	"bytes"
+	_ "embed"
 	"errors"
 	"fmt"
 	"io"
@@ -16,7 +17,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/cli/v2/api"
 	"github.com/cli/cli/v2/internal/config"
 	"github.com/cli/cli/v2/internal/ghrepo"
@@ -525,6 +525,21 @@ func (m *Manager) installDir() string {
 	return filepath.Join(m.dataDir(), "extensions")
 }
 
+//go:embed ext_tmpls/goBinMain.go
+var mainGoTmpl string
+
+//go:embed ext_tmpls/goBinWorkflow.yml
+var goBinWorkflow []byte
+
+//go:embed ext_tmpls/otherBinWorkflow.yml
+var otherBinWorkflow []byte
+
+//go:embed ext_tmpls/script.sh
+var scriptTmpl string
+
+//go:embed ext_tmpls/buildScript.sh
+var buildScript []byte
+
 func (m *Manager) Create(name string, tmplType extensions.ExtTemplateType) error {
 	exe, err := m.lookPath("git")
 	if err != nil {
@@ -548,45 +563,9 @@ func (m *Manager) Create(name string, tmplType extensions.ExtTemplateType) error
 		return m.otherBinScaffolding(exe, name)
 	}
 
-	fileTmpl := heredoc.Docf(`
-		#!/usr/bin/env bash
-		set -e
-
-		echo "Hello %[1]s!"
-
-		# Snippets to help get started:
-
-		# Determine if an executable is in the PATH
-		# if ! type -p ruby >/dev/null; then
-		#   echo "Ruby not found on the system" >&2
-		#   exit 1
-		# fi
-
-		# Pass arguments through to another command
-		# gh issue list "$@" -R cli/cli
-
-		# Using the gh api command to retrieve and format information
-		# QUERY='
-		#   query($endCursor: String) {
-		#     viewer {
-		#       repositories(first: 100, after: $endCursor) {
-		#         nodes {
-		#           nameWithOwner
-		#           stargazerCount
-		#         }
-		#       }
-		#     }
-		#   }
-		# '
-		# TEMPLATE='
-		#   {{- range $repo := .data.viewer.repositories.nodes -}}
-		#     {{- printf "name: %[2]s - stargazers: %[3]s\n" $repo.nameWithOwner $repo.stargazerCount -}}
-		#   {{- end -}}
-		# '
-		# exec gh api graphql -f query="${QUERY}" --paginate --template="${TEMPLATE}"
-	`, name, "%s", "%v")
+	script := fmt.Sprintf(scriptTmpl, name, "%s", "%v")
 	filePath := filepath.Join(name, name)
-	err = ioutil.WriteFile(filePath, []byte(fileTmpl), 0755)
+	err = ioutil.WriteFile(filePath, []byte(script), 0755)
 	if err != nil {
 		return err
 	}
@@ -605,26 +584,8 @@ func (m *Manager) otherBinScaffolding(gitExe, name string) error {
 	if err != nil {
 		return err
 	}
-	workflow := heredoc.Doc(`
-	name: release
-	on:
-	  push:
-	    tags:
-	      - "v*"
-	permissions:
-	  contents: write
-	
-	jobs:
-	  release:
-	    runs-on: ubuntu-latest
-	    steps:
-	      - uses: actions/checkout@v2
-	      - uses: cli/gh-extension-precompile@v1
-		  	with:
-			  build_script_override: "script/build.sh"
-	`)
 	workflowPath := filepath.Join(".github", "workflows", "release.yml")
-	err = ioutil.WriteFile(filepath.Join(name, workflowPath), []byte(workflow), 0755)
+	err = ioutil.WriteFile(filepath.Join(name, workflowPath), otherBinWorkflow, 0755)
 	if err != nil {
 		return err
 	}
@@ -632,13 +593,8 @@ func (m *Manager) otherBinScaffolding(gitExe, name string) error {
 	if err != nil {
 		return err
 	}
-	buildScript := heredoc.Doc(`
-	#!/usr/bin/env bash
-	echo "TODO implement this script."
-	echo "It should build binaries in /dist/<platform>-<arch>[.exe] as needed."
-	`)
 	buildScriptPath := filepath.Join("script", "build.sh")
-	err = ioutil.WriteFile(filepath.Join(name, buildScriptPath), []byte(buildScript), 0755)
+	err = ioutil.WriteFile(filepath.Join(name, buildScriptPath), buildScript, 0755)
 	if err != nil {
 		return err
 	}
@@ -663,76 +619,15 @@ func (m *Manager) goBinScaffolding(gitExe, name string) error {
 	if err != nil {
 		return err
 	}
-	workflow := heredoc.Doc(`
-	name: release
-	on:
-	  push:
-	    tags:
-	      - "v*"
-	permissions:
-	  contents: write
-	
-	jobs:
-	  release:
-	    runs-on: ubuntu-latest
-	    steps:
-	      - uses: actions/checkout@v2
-	      - uses: cli/gh-extension-precompile@v1
-	`)
 	workflowPath := filepath.Join(".github", "workflows", "release.yml")
-	err = ioutil.WriteFile(filepath.Join(name, workflowPath), []byte(workflow), 0755)
+	err = ioutil.WriteFile(filepath.Join(name, workflowPath), goBinWorkflow, 0755)
 	if err != nil {
 		return err
 	}
 
-	// TODO put in some helpers
-	mainGo := heredoc.Docf(`
-	package main
-	import (
-		"bytes"
-		"fmt"
-		"os/exec"
-		"strings"
-
-		"github.com/cli/safeexec"
-	)
-
-	func main() {
-		fmt.Println("hi world, this is the %s extension!")
-	}
-	
-	// gh shells out to gh, returning STDOUT/STDERR and any error
-	func gh(args ...string) (sout, eout bytes.Buffer, err error) {
-		ghBin, err := safeexec.LookPath("gh")
-		if err != nil {
-			err = fmt.Errorf("could not find gh. Is it installed? error: %%w", err)
-			return
-		}
-
-		cmd := exec.Command(ghBin, args...)
-		cmd.Stderr = &eout
-		cmd.Stdout = &sout
-
-		err = cmd.Run()
-		if err != nil {
-			err = fmt.Errorf("failed to run gh. error: %%w, stderr: %%s", err, eout.String())
-			return
-		}
-
-		return
-	}
-
-	func resolveRepository() (string, error) {
-		sout, _, err := gh("repo", "view")
-		if err != nil {
-			return "", err
-		}
-		viewOut := strings.Split(sout.String(), "\n")[0]
-		repo := strings.TrimSpace(strings.Split(viewOut, ":")[1])
-
-		return repo, nil
-	}`, name)
+	mainGo := fmt.Sprintf(mainGoTmpl, name)
 	mainPath := "main.go"
+
 	err = ioutil.WriteFile(filepath.Join(name, mainPath), []byte(mainGo), 0755)
 	if err != nil {
 		return err
