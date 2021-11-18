@@ -198,7 +198,7 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 			var flagGoBinary bool
 			var flagOtherBinary bool
 			cmd := &cobra.Command{
-				Use:   "create <name>",
+				Use:   "create [name]",
 				Short: "Create a new extension",
 				Example: heredoc.Doc(`
 				# Use interactively
