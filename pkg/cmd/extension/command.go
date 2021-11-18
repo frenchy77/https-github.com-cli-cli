@@ -241,12 +241,22 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 					if !io.IsStdoutTTY() {
 						return nil
 					}
+
+					// TODO get name without gh- to use in format string
+					// TODO test go binary note
+					// TODO improve other binary note
+					// TODO consider updating git based note
+
+					cs := io.ColorScheme()
 					binaryNote := ""
 					if tmplType == extensions.GoBinTemplateType {
 						binaryNote = heredoc.Docf(`
 
-							Remember to run 'go build -o %s' to see changes.
-						`, extName)
+							%[1]s
+							  - run 'cd %[2]s; gh extension install; gh %[3]s' to see your new extension in action
+							  - use 'go build && gh %[3]s' to see changes in your code as you develop
+							  - commit to the extension and use 'gh repo create' to push this extension to the web and share it with others
+						`, cs.Bold("Next Steps"), "TODO NAME WITH GH-", "TODO NAME WITHOUT GH-")
 					} else if tmplType == extensions.OtherBinTemplateType {
 						binaryNote = heredoc.Docf(`
 
@@ -256,7 +266,6 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 						`, extName)
 					}
 					link := "https://docs.github.com/github-cli/github-cli/creating-github-cli-extensions"
-					cs := io.ColorScheme()
 					out := heredoc.Docf(`
 					%[1]s Created directory %[2]s
 					%[1]s Initialized git repository
