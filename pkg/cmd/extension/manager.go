@@ -643,22 +643,28 @@ func (m *Manager) goBinScaffolding(gitExe, name string) error {
 	}
 	dir := filepath.Join(wd, name)
 
-	// TODO get user name
-	// TODO get default host
-
-	modInit := m.newCommand(goExe, "mod", "init",
-		fmt.Sprintf("%s/%s/%s", "TODO", "TODO", name))
-	modInit.Dir = dir
-	err = modInit.Run()
+	host, err := m.config.DefaultHost()
 	if err != nil {
-		return fmt.Errorf("failed to initialize go module: %w", err)
+		return err
 	}
 
-	modTidy := m.newCommand(goExe, "mod", "tidy")
-	modTidy.Dir = dir
-	err = modInit.Run()
+	currentUser, err := api.CurrentLoginName(api.NewClientFromHTTP(m.client), host)
 	if err != nil {
-		return fmt.Errorf("failed to fetch go dependencies: %w", err)
+		return err
+	}
+
+	goCmds := [][]string{
+		{"mod", "init", fmt.Sprintf("%s/%s/%s", host, currentUser, name)},
+		{"mod", "tidy"},
+	}
+
+	for _, args := range goCmds {
+		goCmd := m.newCommand(goExe, args...)
+		goCmd.Dir = dir
+		err = goCmd.Run()
+		if err != nil {
+			return fmt.Errorf("failed to set up go module: %w", err)
+		}
 	}
 
 	addCmd := m.newCommand(gitExe, "-C", dir, "--git-dir="+filepath.Join(dir, ".git"), "add", workflowPath, mainPath)
