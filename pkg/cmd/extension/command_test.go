@@ -298,8 +298,8 @@ func TestNewCmdExtension(t *testing.T) {
 			`),
 		},
 		{
-			name: "create extension with arg, --precompiled-go",
-			args: []string{"create", "test", "--precompiled-go"},
+			name: "create extension with arg, --precompiled=go",
+			args: []string{"create", "test", "--precompiled", "go"},
 			managerStubs: func(em *extensions.ExtensionManagerMock) func(*testing.T) {
 				em.CreateFunc = func(name string, tmplType extensions.ExtTemplateType) error {
 					return nil
@@ -329,8 +329,8 @@ func TestNewCmdExtension(t *testing.T) {
 			`),
 		},
 		{
-			name: "create extension with arg, --precompiled-other",
-			args: []string{"create", "test", "--precompiled-other"},
+			name: "create extension with arg, --precompiled=other",
+			args: []string{"create", "test", "--precompiled", "other"},
 			managerStubs: func(em *extensions.ExtensionManagerMock) func(*testing.T) {
 				em.CreateFunc = func(name string, tmplType extensions.ExtTemplateType) error {
 					return nil
