@@ -213,6 +213,11 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 				`),
 				Args: cobra.MaximumNArgs(1),
 				RunE: func(cmd *cobra.Command, args []string) error {
+					if cmd.Flags().Changed("precompiled") {
+						if flagType != "go" && flagType != "other" {
+							return cmdutil.FlagErrorf("value for --precompiled must be 'go' or 'other'. Got '%s'", flagType)
+						}
+					}
 					var extName string
 					var err error
 					tmplType := extensions.GitTemplateType
@@ -232,38 +237,37 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 						}
 					}
 
-					if !strings.HasPrefix(extName, "gh-") {
-						extName = "gh-" + extName
+					var fullName string
+
+					if strings.HasPrefix(extName, "gh-") {
+						fullName = extName
+						extName = extName[3:]
+					} else {
+						fullName = "gh-" + extName
 					}
-					if err := m.Create(extName, tmplType); err != nil {
+					if err := m.Create(fullName, tmplType); err != nil {
 						return err
 					}
 					if !io.IsStdoutTTY() {
 						return nil
 					}
 
-					// TODO get name without gh- to use in format string
-					// TODO test go binary note
-					// TODO improve other binary note
-					// TODO consider updating git based note
+					// TODO fix tests
+
+					steps := fmt.Sprintf(
+						"- run 'cd %[1]s; gh extension install .; gh %[2]s' to see your new extension in action",
+						fullName, extName)
 
 					cs := io.ColorScheme()
-					binaryNote := ""
 					if tmplType == extensions.GoBinTemplateType {
-						binaryNote = heredoc.Docf(`
-
-							%[1]s
-							  - run 'cd %[2]s; gh extension install; gh %[3]s' to see your new extension in action
-							  - use 'go build && gh %[3]s' to see changes in your code as you develop
-							  - commit to the extension and use 'gh repo create' to push this extension to the web and share it with others
-						`, cs.Bold("Next Steps"), "TODO NAME WITH GH-", "TODO NAME WITHOUT GH-")
+						steps = heredoc.Docf(`
+						- run 'cd %[1]s; gh extension install .; gh %[2]s' to see your new extension in action
+						- use 'go build && gh %[2]s' to see changes in your code as you develop`, fullName, extName)
 					} else if tmplType == extensions.OtherBinTemplateType {
-						binaryNote = heredoc.Docf(`
-
-							Remember to:
-							  - fill in script/build.sh with your compilation script for automated builds.
-							  - compile a %[1]s binary locally to see changes.
-						`, extName)
+						steps = heredoc.Docf(`
+						- run 'cd %[1]s; gh extension install .' to install your extension locally
+						- fill in script/build.sh with your compilation script for automated builds.
+						- compile a %[1]s binary locally and run 'gh %[2]s' to see changes.`, fullName, extName)
 					}
 					link := "https://docs.github.com/github-cli/github-cli/creating-github-cli-extensions"
 					out := heredoc.Docf(`
@@ -271,15 +275,15 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 					%[1]s Initialized git repository
 					%[1]s Set up extension scaffolding
 
-					%[2]s is ready for development
+					%[2]s is ready for development!
 
-					Install locally with: cd %[2]s && gh extension install .
 					%[4]s
-					Publish to GitHub with: gh repo create %[2]s
+					%[5]s
+					- commit and use 'gh repo create' to share your extension with others
 
 					For more information on writing extensions:
 					%[3]s
-				`, cs.SuccessIcon(), extName, link, binaryNote)
+				`, cs.SuccessIcon(), fullName, link, cs.Bold("Next Steps"), steps)
 					fmt.Fprint(io.Out, out)
 					return nil
 				},
