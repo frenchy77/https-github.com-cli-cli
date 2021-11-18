@@ -659,6 +659,16 @@ func (m *Manager) goBinScaffolding(gitExe, name string) error {
 		{"build"},
 	}
 
+	ignore := name
+	if strings.HasPrefix(m.platform(), "windows") {
+		ignore = name + ".exe"
+	}
+
+	err = ioutil.WriteFile(filepath.Join(name, ".gitignore"), []byte(ignore), 0755)
+	if err != nil {
+		return err
+	}
+
 	for _, args := range goCmds {
 		goCmd := m.newCommand(goExe, args...)
 		goCmd.Dir = dir
@@ -668,7 +678,18 @@ func (m *Manager) goBinScaffolding(gitExe, name string) error {
 		}
 	}
 
-	addCmd := m.newCommand(gitExe, "-C", dir, "--git-dir="+filepath.Join(dir, ".git"), "add", workflowPath, mainPath)
+	addArgs := []string{
+		"-C", dir,
+		"--git-dir=" + filepath.Join(dir, ".git"),
+		"add",
+		workflowPath,
+		mainPath,
+		".gitignore",
+		"go.mod",
+		"go.sum",
+	}
+
+	addCmd := m.newCommand(gitExe, addArgs...)
 	return addCmd.Run()
 }
 
