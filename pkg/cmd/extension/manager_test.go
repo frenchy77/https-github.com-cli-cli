@@ -524,16 +524,23 @@ func TestManager_Create_go_binary(t *testing.T) {
 	oldWd, _ := os.Getwd()
 	assert.NoError(t, os.Chdir(tempDir))
 	t.Cleanup(func() { _ = os.Chdir(oldWd) })
-	m := newTestManager(tempDir, nil, nil)
+	reg := httpmock.Registry{}
+	defer reg.Verify(t)
+	client := http.Client{Transport: &reg}
+
+	reg.Register(
+		httpmock.GraphQL(`query UserCurrent\b`),
+		httpmock.StringResponse(`{"data":{"viewer":{"login":"jillv"}}}`))
+	m := newTestManager(tempDir, &client, nil)
 
 	err := m.Create("gh-test", extensions.GoBinTemplateType)
 	assert.NoError(t, err)
 
 	files, err := ioutil.ReadDir(filepath.Join(tempDir, "gh-test"))
 	assert.NoError(t, err)
-	assert.Equal(t, 2, len(files))
-	mainFile := files[1]
-	assert.Equal(t, "main.go", mainFile.Name())
+	assert.Equal(t, 3, len(files))
+	assert.Equal(t, ".gitignore", files[1].Name())
+	assert.Equal(t, "main.go", files[2].Name())
 
 	files, err = ioutil.ReadDir(filepath.Join(tempDir, "gh-test", ".github", "workflows"))
 	assert.NoError(t, err)
