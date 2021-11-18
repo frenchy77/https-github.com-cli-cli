@@ -615,7 +615,11 @@ func (m *Manager) otherBinScaffolding(gitExe, name string) error {
 }
 
 func (m *Manager) goBinScaffolding(gitExe, name string) error {
-	err := os.MkdirAll(filepath.Join(name, ".github", "workflows"), 0755)
+	goExe, err := m.lookPath("go")
+	if err != nil {
+		return fmt.Errorf("go is required for creating Go extensions: %w", err)
+	}
+	err = os.MkdirAll(filepath.Join(name, ".github", "workflows"), 0755)
 	if err != nil {
 		return err
 	}
@@ -637,8 +641,26 @@ func (m *Manager) goBinScaffolding(gitExe, name string) error {
 	if err != nil {
 		return err
 	}
-
 	dir := filepath.Join(wd, name)
+
+	// TODO get user name
+	// TODO get default host
+
+	modInit := m.newCommand(goExe, "mod", "init",
+		fmt.Sprintf("%s/%s/%s", "TODO", "TODO", name))
+	modInit.Dir = dir
+	err = modInit.Run()
+	if err != nil {
+		return fmt.Errorf("failed to initialize go module: %w", err)
+	}
+
+	modTidy := m.newCommand(goExe, "mod", "tidy")
+	modTidy.Dir = dir
+	err = modInit.Run()
+	if err != nil {
+		return fmt.Errorf("failed to fetch go dependencies: %w", err)
+	}
+
 	addCmd := m.newCommand(gitExe, "-C", dir, "--git-dir="+filepath.Join(dir, ".git"), "add", workflowPath, mainPath)
 	return addCmd.Run()
 }
