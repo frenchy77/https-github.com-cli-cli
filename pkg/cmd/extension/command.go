@@ -194,9 +194,7 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 				}, &extTmplType)
 				return extName, extensions.ExtTemplateType(extTmplType), err
 			}
-			// TODO fix flags
-			var flagGoBinary bool
-			var flagOtherBinary bool
+			var flagType string
 			cmd := &cobra.Command{
 				Use:   "create [name]",
 				Short: "Create a new extension",
@@ -208,16 +206,13 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 				gh extension create foobar
 
 				# Create a Go extension
-				gh extension create --precompiled-go foobar
+				gh extension create --precompiled=go foobar
 
 				# Create a non-Go precompiled extension
-				gh extension create --precompiled-other foobar
+				gh extension create --precompiled=other foobar
 				`),
 				Args: cobra.MaximumNArgs(1),
 				RunE: func(cmd *cobra.Command, args []string) error {
-					if err := cmdutil.MutuallyExclusive("specify only one of --precompiled-go and --precompiled-other", flagGoBinary, flagOtherBinary); err != nil {
-						return err
-					}
 					var extName string
 					var err error
 					tmplType := extensions.GitTemplateType
@@ -230,9 +225,9 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 						}
 					} else {
 						extName = args[0]
-						if flagGoBinary {
+						if flagType == "go" {
 							tmplType = extensions.GoBinTemplateType
-						} else if flagOtherBinary {
+						} else if flagType == "other" {
 							tmplType = extensions.OtherBinTemplateType
 						}
 					}
@@ -280,8 +275,7 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 					return nil
 				},
 			}
-			cmd.Flags().BoolVar(&flagGoBinary, "precompiled-go", false, "Create a precompiled Go extension")
-			cmd.Flags().BoolVar(&flagOtherBinary, "precompiled-other", false, "Create a precompiled non-Go extension")
+			cmd.Flags().StringVar(&flagType, "precompiled", "", "Create a precompiled extension. Possible values: go, other")
 			return cmd
 		}(),
 	)
