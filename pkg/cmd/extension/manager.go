@@ -525,7 +525,7 @@ func (m *Manager) installDir() string {
 	return filepath.Join(m.dataDir(), "extensions")
 }
 
-//go:embed ext_tmpls/goBinMain.go
+//go:embed ext_tmpls/goBinMain.go.txt
 var mainGoTmpl string
 
 //go:embed ext_tmpls/goBinWorkflow.yml
