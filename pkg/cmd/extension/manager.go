@@ -656,6 +656,7 @@ func (m *Manager) goBinScaffolding(gitExe, name string) error {
 	goCmds := [][]string{
 		{"mod", "init", fmt.Sprintf("%s/%s/%s", host, currentUser, name)},
 		{"mod", "tidy"},
+		{"build"},
 	}
 
 	for _, args := range goCmds {
