@@ -287,11 +287,11 @@ func TestNewCmdExtension(t *testing.T) {
 				✓ Initialized git repository
 				✓ Set up extension scaffolding
 
-				gh-test is ready for development
+				gh-test is ready for development!
 
-				Install locally with: cd gh-test && gh extension install .
-
-				Publish to GitHub with: gh repo create gh-test
+				Next Steps
+				- run 'cd gh-test; gh extension install .; gh test' to see your new extension in action
+				- commit and use 'gh repo create' to share your extension with others
 
 				For more information on writing extensions:
 				https://docs.github.com/github-cli/github-cli/creating-github-cli-extensions
@@ -316,13 +316,12 @@ func TestNewCmdExtension(t *testing.T) {
 				✓ Initialized git repository
 				✓ Set up extension scaffolding
 
-				gh-test is ready for development
+				gh-test is ready for development!
 
-				Install locally with: cd gh-test && gh extension install .
-
-				Remember to run 'go build -o gh-test' to see changes.
-
-				Publish to GitHub with: gh repo create gh-test
+				Next Steps
+				- run 'cd gh-test; gh extension install .; gh test' to see your new extension in action
+				- use 'go build && gh test' to see changes in your code as you develop
+				- commit and use 'gh repo create' to share your extension with others
 
 				For more information on writing extensions:
 				https://docs.github.com/github-cli/github-cli/creating-github-cli-extensions
@@ -347,15 +346,13 @@ func TestNewCmdExtension(t *testing.T) {
 				✓ Initialized git repository
 				✓ Set up extension scaffolding
 
-				gh-test is ready for development
+				gh-test is ready for development!
 
-				Install locally with: cd gh-test && gh extension install .
-
-				Remember to:
-				  - fill in script/build.sh with your compilation script for automated builds.
-				  - compile a gh-test binary locally to see changes.
-
-				Publish to GitHub with: gh repo create gh-test
+				Next Steps
+				- run 'cd gh-test; gh extension install .' to install your extension locally
+				- fill in script/build.sh with your compilation script for automated builds
+				- compile a gh-test binary locally and run 'gh test' to see changes
+				- commit and use 'gh repo create' to share your extension with others
 
 				For more information on writing extensions:
 				https://docs.github.com/github-cli/github-cli/creating-github-cli-extensions
@@ -380,11 +377,11 @@ func TestNewCmdExtension(t *testing.T) {
 				✓ Initialized git repository
 				✓ Set up extension scaffolding
 
-				gh-test is ready for development
+				gh-test is ready for development!
 
-				Install locally with: cd gh-test && gh extension install .
-
-				Publish to GitHub with: gh repo create gh-test
+				Next Steps
+				- run 'cd gh-test; gh extension install .; gh test' to see your new extension in action
+				- commit and use 'gh repo create' to share your extension with others
 
 				For more information on writing extensions:
 				https://docs.github.com/github-cli/github-cli/creating-github-cli-extensions

@@ -252,8 +252,6 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 						return nil
 					}
 
-					// TODO fix tests
-
 					steps := fmt.Sprintf(
 						"- run 'cd %[1]s; gh extension install .; gh %[2]s' to see your new extension in action",
 						fullName, extName)
@@ -266,8 +264,8 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 					} else if tmplType == extensions.OtherBinTemplateType {
 						steps = heredoc.Docf(`
 						- run 'cd %[1]s; gh extension install .' to install your extension locally
-						- fill in script/build.sh with your compilation script for automated builds.
-						- compile a %[1]s binary locally and run 'gh %[2]s' to see changes.`, fullName, extName)
+						- fill in script/build.sh with your compilation script for automated builds
+						- compile a %[1]s binary locally and run 'gh %[2]s' to see changes`, fullName, extName)
 					}
 					link := "https://docs.github.com/github-cli/github-cli/creating-github-cli-extensions"
 					out := heredoc.Docf(`
