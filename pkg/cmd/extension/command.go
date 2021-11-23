@@ -7,11 +7,11 @@ import (
 	"strings"
 
 	"github.com/MakeNowJust/heredoc"
-	"github.com/cli/cli/git"
-	"github.com/cli/cli/internal/ghrepo"
-	"github.com/cli/cli/pkg/cmdutil"
-	"github.com/cli/cli/pkg/extensions"
-	"github.com/cli/cli/utils"
+	"github.com/cli/cli/v2/git"
+	"github.com/cli/cli/v2/internal/ghrepo"
+	"github.com/cli/cli/v2/pkg/cmdutil"
+	"github.com/cli/cli/v2/pkg/extensions"
+	"github.com/cli/cli/v2/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -30,6 +30,8 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 			will be forwarded to the %[1]sgh-<extname>%[1]s executable of the extension.
 
 			An extension cannot override any of the core gh commands.
+
+			See the list of available extensions at <https://github.com/topics/gh-extension>
 		`, "`"),
 		Aliases: []string{"extensions"},
 	}
@@ -67,9 +69,25 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 			},
 		},
 		&cobra.Command{
-			Use:   "install <repo>",
+			Use:   "install <repository>",
 			Short: "Install a gh extension from a repository",
-			Args:  cmdutil.MinimumArgs(1, "must specify a repository to install from"),
+			Long: heredoc.Doc(`
+				Install a GitHub repository locally as a GitHub CLI extension.
+				
+				The repository argument can be specified in "owner/repo" format as well as a full URL.
+				The URL format is useful when the repository is not hosted on github.com.
+				
+				To install an extension in development from the current directory, use "." as the
+				value of the repository argument.
+
+				See the list of available extensions at <https://github.com/topics/gh-extension>
+			`),
+			Example: heredoc.Doc(`
+				$ gh extension install owner/gh-extension
+				$ gh extension install https://git.example.com/owner/gh-extension
+				$ gh extension install .
+			`),
+			Args: cmdutil.MinimumArgs(1, "must specify a repository to install from"),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				if args[0] == "." {
 					wd, err := os.Getwd()
@@ -83,16 +101,12 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 				if err != nil {
 					return err
 				}
+
 				if err := checkValidExtension(cmd.Root(), m, repo.RepoName()); err != nil {
 					return err
 				}
 
-				cfg, err := f.Config()
-				if err != nil {
-					return err
-				}
-				protocol, _ := cfg.Get(repo.RepoHost(), "git_protocol")
-				return m.Install(ghrepo.FormatRemoteURL(repo, protocol), io.Out, io.ErrOut)
+				return m.Install(repo)
 			},
 		},
 		func() *cobra.Command {
@@ -103,22 +117,39 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 				Short: "Upgrade installed extensions",
 				Args: func(cmd *cobra.Command, args []string) error {
 					if len(args) == 0 && !flagAll {
-						return &cmdutil.FlagError{Err: errors.New("must specify an extension to upgrade")}
+						return cmdutil.FlagErrorf("must specify an extension to upgrade")
 					}
 					if len(args) > 0 && flagAll {
-						return &cmdutil.FlagError{Err: errors.New("cannot use `--all` with extension name")}
+						return cmdutil.FlagErrorf("cannot use `--all` with extension name")
 					}
 					if len(args) > 1 {
-						return &cmdutil.FlagError{Err: errors.New("too many arguments")}
+						return cmdutil.FlagErrorf("too many arguments")
 					}
 					return nil
 				},
 				RunE: func(cmd *cobra.Command, args []string) error {
 					var name string
 					if len(args) > 0 {
-						name = args[0]
+						name = normalizeExtensionSelector(args[0])
 					}
-					return m.Upgrade(name, flagForce, io.Out, io.ErrOut)
+					cs := io.ColorScheme()
+					err := m.Upgrade(name, flagForce)
+					if err != nil {
+						if name != "" {
+							fmt.Fprintf(io.ErrOut, "%s Failed upgrading extension %s: %s", cs.FailureIcon(), name, err)
+						} else {
+							fmt.Fprintf(io.ErrOut, "%s Failed upgrading extensions", cs.FailureIcon())
+						}
+						return cmdutil.SilentError
+					}
+					if io.IsStdoutTTY() {
+						if name != "" {
+							fmt.Fprintf(io.Out, "%s Successfully upgraded extension %s\n", cs.SuccessIcon(), name)
+						} else {
+							fmt.Fprintf(io.Out, "%s Successfully upgraded extensions\n", cs.SuccessIcon())
+						}
+					}
+					return nil
 				},
 			}
 			cmd.Flags().BoolVar(&flagAll, "all", false, "Upgrade all extensions")
@@ -130,7 +161,7 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 			Short: "Remove an installed extension",
 			Args:  cobra.ExactArgs(1),
 			RunE: func(cmd *cobra.Command, args []string) error {
-				extName := args[0]
+				extName := normalizeExtensionSelector(args[0])
 				if err := m.Remove(extName); err != nil {
 					return err
 				}
@@ -141,9 +172,43 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
 				return nil
 			},
 		},
+		&cobra.Command{
+			Use:   "create <name>",
+			Short: "Create a new extension",
+			Args:  cmdutil.ExactArgs(1, "must specify a name for the extension"),
+			RunE: func(cmd *cobra.Command, args []string) error {
+				extName := args[0]
+				if !strings.HasPrefix(extName, "gh-") {
+					extName = "gh-" + extName
+				}
+				if err := m.Create(extName); err != nil {
+					return err
+				}
+				if !io.IsStdoutTTY() {
+					return nil
+				}
+				link := "https://docs.github.com/github-cli/github-cli/creating-github-cli-extensions"
+				cs := io.ColorScheme()
+				out := heredoc.Docf(`
+					%[1]s Created directory %[2]s
+					%[1]s Initialized git repository
+					%[1]s Set up extension scaffolding
+
+					%[2]s is ready for development
+
+					Install locally with: cd %[2]s && gh extension install .
+
+					Publish to GitHub with: gh repo create %[2]s
+
+					For more information on writing extensions:
+					%[3]s
+				`, cs.SuccessIcon(), extName, link)
+				fmt.Fprint(io.Out, out)
+				return nil
+			},
+		},
 	)
 
-	extCmd.Hidden = true
 	return &extCmd
 }
 
@@ -166,4 +231,11 @@ func checkValidExtension(rootCmd *cobra.Command, m extensions.ExtensionManager, 
 	}
 
 	return nil
+}
+
+func normalizeExtensionSelector(n string) string {
+	if idx := strings.IndexRune(n, '/'); idx >= 0 {
+		n = n[idx+1:]
+	}
+	return strings.TrimPrefix(n, "gh-")
 }

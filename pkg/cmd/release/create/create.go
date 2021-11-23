@@ -10,16 +10,16 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/MakeNowJust/heredoc"
-	"github.com/cli/cli/git"
-	"github.com/cli/cli/internal/config"
-	"github.com/cli/cli/internal/ghrepo"
-	"github.com/cli/cli/internal/run"
-	"github.com/cli/cli/pkg/cmd/release/shared"
-	"github.com/cli/cli/pkg/cmdutil"
-	"github.com/cli/cli/pkg/iostreams"
-	"github.com/cli/cli/pkg/prompt"
-	"github.com/cli/cli/pkg/surveyext"
-	"github.com/cli/cli/pkg/text"
+	"github.com/cli/cli/v2/git"
+	"github.com/cli/cli/v2/internal/config"
+	"github.com/cli/cli/v2/internal/ghrepo"
+	"github.com/cli/cli/v2/internal/run"
+	"github.com/cli/cli/v2/pkg/cmd/release/shared"
+	"github.com/cli/cli/v2/pkg/cmdutil"
+	"github.com/cli/cli/v2/pkg/iostreams"
+	"github.com/cli/cli/v2/pkg/prompt"
+	"github.com/cli/cli/v2/pkg/surveyext"
+	"github.com/cli/cli/v2/pkg/text"
 	"github.com/spf13/cobra"
 )
 
@@ -141,7 +141,7 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
 	cmd.Flags().StringVar(&opts.Target, "target", "", "Target `branch` or full commit SHA (default: main branch)")
 	cmd.Flags().StringVarP(&opts.Name, "title", "t", "", "Release title")
 	cmd.Flags().StringVarP(&opts.Body, "notes", "n", "", "Release notes")
-	cmd.Flags().StringVarP(&notesFile, "notes-file", "F", "", "Read release notes from `file`")
+	cmd.Flags().StringVarP(&notesFile, "notes-file", "F", "", "Read release notes from `file` (use \"-\" to read from standard input)")
 	cmd.Flags().StringVarP(&opts.DiscussionCategory, "discussion-category", "", "", "Start a discussion of the specified category")
 
 	return cmd
@@ -241,6 +241,13 @@ func createRun(opts *CreateOptions) error {
 			opts.Body = text
 		}
 
+		saveAsDraft := "Save as draft"
+		publishRelease := "Publish release"
+		defaultSubmit := publishRelease
+		if opts.Draft {
+			defaultSubmit = saveAsDraft
+		}
+
 		qs = []*survey.Question{
 			{
 				Name: "prerelease",
@@ -254,10 +261,11 @@ func createRun(opts *CreateOptions) error {
 				Prompt: &survey.Select{
 					Message: "Submit?",
 					Options: []string{
-						"Publish release",
-						"Save as draft",
+						publishRelease,
+						saveAsDraft,
 						"Cancel",
 					},
+					Default: defaultSubmit,
 				},
 			},
 		}

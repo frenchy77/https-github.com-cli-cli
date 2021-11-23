@@ -13,7 +13,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/cli/cli/internal/run"
+	"github.com/cli/cli/v2/internal/run"
 	"github.com/cli/safeexec"
 )
 
@@ -364,6 +364,21 @@ func ToplevelDir() (string, error) {
 	output, err := run.PrepareCmd(showCmd).Output()
 	return firstLine(output), err
 
+}
+
+func PathFromRepoRoot() string {
+	showCmd, err := GitCommand("rev-parse", "--show-prefix")
+	if err != nil {
+		return ""
+	}
+	output, err := run.PrepareCmd(showCmd).Output()
+	if err != nil {
+		return ""
+	}
+	if path := firstLine(output); path != "" {
+		return path[:len(path)-1]
+	}
+	return ""
 }
 
 func outputLines(output []byte) []string {

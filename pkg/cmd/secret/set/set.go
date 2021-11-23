@@ -12,13 +12,13 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/MakeNowJust/heredoc"
-	"github.com/cli/cli/api"
-	"github.com/cli/cli/internal/config"
-	"github.com/cli/cli/internal/ghrepo"
-	"github.com/cli/cli/pkg/cmd/secret/shared"
-	"github.com/cli/cli/pkg/cmdutil"
-	"github.com/cli/cli/pkg/iostreams"
-	"github.com/cli/cli/pkg/prompt"
+	"github.com/cli/cli/v2/api"
+	"github.com/cli/cli/v2/internal/config"
+	"github.com/cli/cli/v2/internal/ghrepo"
+	"github.com/cli/cli/v2/pkg/cmd/secret/shared"
+	"github.com/cli/cli/v2/pkg/cmdutil"
+	"github.com/cli/cli/v2/pkg/iostreams"
+	"github.com/cli/cli/v2/pkg/prompt"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/nacl/box"
 )
@@ -71,7 +71,7 @@ func NewCmdSet(f *cmdutil.Factory, runF func(*SetOptions) error) *cobra.Command 
 `),
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
-				return &cmdutil.FlagError{Err: errors.New("must pass single secret name")}
+				return cmdutil.FlagErrorf("must pass single secret name")
 			}
 			return nil
 		},
@@ -92,23 +92,19 @@ func NewCmdSet(f *cmdutil.Factory, runF func(*SetOptions) error) *cobra.Command 
 
 			if cmd.Flags().Changed("visibility") {
 				if opts.OrgName == "" {
-					return &cmdutil.FlagError{Err: errors.New(
-						"--visibility not supported for repository secrets; did you mean to pass --org?")}
+					return cmdutil.FlagErrorf("--visibility not supported for repository secrets; did you mean to pass --org?")
 				}
 
 				if opts.Visibility != shared.All && opts.Visibility != shared.Private && opts.Visibility != shared.Selected {
-					return &cmdutil.FlagError{Err: errors.New(
-						"--visibility must be one of `all`, `private`, or `selected`")}
+					return cmdutil.FlagErrorf("--visibility must be one of `all`, `private`, or `selected`")
 				}
 
 				if opts.Visibility != shared.Selected && cmd.Flags().Changed("repos") {
-					return &cmdutil.FlagError{Err: errors.New(
-						"--repos only supported when --visibility='selected'")}
+					return cmdutil.FlagErrorf("--repos only supported when --visibility='selected'")
 				}
 
 				if opts.Visibility == shared.Selected && !cmd.Flags().Changed("repos") {
-					return &cmdutil.FlagError{Err: errors.New(
-						"--repos flag required when --visibility='selected'")}
+					return cmdutil.FlagErrorf("--repos flag required when --visibility='selected'")
 				}
 			} else {
 				if cmd.Flags().Changed("repos") {

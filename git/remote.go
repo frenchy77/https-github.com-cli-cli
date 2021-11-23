@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cli/cli/internal/run"
+	"github.com/cli/cli/v2/internal/run"
 )
 
 var remoteRE = regexp.MustCompile(`(.+)\s+(.+)\s+\((push|fetch)\)`)
@@ -138,6 +138,14 @@ func AddRemote(name, u string) (*Remote, error) {
 		FetchURL: urlParsed,
 		PushURL:  urlParsed,
 	}, nil
+}
+
+func UpdateRemoteURL(name, u string) error {
+	addCmd, err := GitCommand("remote", "set-url", name, u)
+	if err != nil {
+		return err
+	}
+	return run.PrepareCmd(addCmd).Run()
 }
 
 func SetRemoteResolution(name, resolution string) error {
